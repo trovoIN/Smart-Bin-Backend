@@ -1,46 +1,39 @@
 // ============================================
-// Smart Bin - Prisma Database Client
+// Smart Bin - Prisma Client (Prisma 6)
 // ============================================
-// This file creates and exports a singleton Prisma client.
-// We use a singleton to prevent multiple database connections
-// during development hot-reloads.
+// This file creates a singleton instance of Prisma Client
+// to be used throughout the application.
+//
+// SINGLETON PATTERN:
+// In development, Next.js hot-reloads on file changes.
+// Without a singleton, this would create many database
+// connections. We store the instance in globalThis to
+// preserve it across hot-reloads.
 // ============================================
 
 import { PrismaClient } from '@prisma/client';
 
-// Extend the global type to include our Prisma client
+// Type declaration for global prisma instance
 declare global {
-    // eslint-disable-next-line no-var
     var prisma: PrismaClient | undefined;
 }
 
 /**
- * Create Prisma client with logging configuration
- * In development: Log queries, errors, and warnings
- * In production: Log only errors
+ * Create a Prisma client instance
+ * In development, log queries for debugging
  */
-const prismaClientSingleton = () => {
-    return new PrismaClient({
+const prisma =
+    globalThis.prisma ??
+    new PrismaClient({
         log:
             process.env.NODE_ENV === 'development'
                 ? ['query', 'error', 'warn']
                 : ['error'],
     });
-};
 
-/**
- * Singleton Prisma client instance
- * In development, we store the client in globalThis to prevent
- * multiple instances during hot-reloads
- */
-const prisma = globalThis.prisma ?? prismaClientSingleton();
-
-// In development, save to global to reuse across hot-reloads
+// Store in globalThis in development to prevent multiple instances
 if (process.env.NODE_ENV !== 'production') {
     globalThis.prisma = prisma;
 }
 
 export default prisma;
-
-// Export commonly used Prisma types for convenience
-export { Prisma } from '@prisma/client';
