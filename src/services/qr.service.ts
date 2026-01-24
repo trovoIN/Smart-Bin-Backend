@@ -18,19 +18,24 @@
 // ============================================
 
 import prisma from '@/lib/db/prisma';
-import { generateSecureToken, generateUrlSafeToken } from '@/lib/security';
+import { generateSecureToken, generateUrlSafeToken, encrypt, decrypt, sha256Hash } from '@/lib/security';
 import { QRCode, QRStatus, QRResolveResponse, UserRole } from '@/types';
 import QRCodeLib from 'qrcode';
+import crypto from 'crypto';
 
 // ============================================
 // CONFIGURATION
 // ============================================
 
-// Length of secure token (in bytes, hex output is 2x)
-const QR_TOKEN_LENGTH = parseInt(process.env.QR_TOKEN_LENGTH || '24', 10);
+// QR Token Format: SQR + 16 alphanumeric characters
+const QR_TOKEN_PREFIX = 'SQR';
+const QR_TOKEN_LENGTH = 16; // 16 alphanumeric characters after prefix
 
 // Base URL for QR codes
 const QR_BASE_URL = process.env.QR_BASE_URL || 'http://localhost:3000/qr';
+
+// Alphanumeric characters for token generation (no confusing chars like 0/O, 1/I/l)
+const ALPHANUMERIC_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 // ============================================
 // QR GENERATION
@@ -38,16 +43,62 @@ const QR_BASE_URL = process.env.QR_BASE_URL || 'http://localhost:3000/qr';
 
 /**
  * Generate a single secure QR token
- * Token requirements:
- * - Random, non-guessable
- * - At least 16 characters
- * - URL-safe
+ * Token format: SQR + 16 alphanumeric characters
+ * Example: SQRABCD1234EFGH56
  * 
- * @returns string - Secure token
+ * The token is:
+ * - Prefixed with 'SQR' for identification
+ * - 16 alphanumeric characters (cryptographically random)
+ * - URL-safe and human-readable
+ * 
+ * @returns string - Secure token (e.g., "SQRABCD1234EFGH56")
  */
 export function generateQRToken(): string {
-    return generateUrlSafeToken(QR_TOKEN_LENGTH);
+    // Generate 16 random alphanumeric characters
+    const randomBytes = crypto.randomBytes(QR_TOKEN_LENGTH);
+    let token = QR_TOKEN_PREFIX;
+
+    for (let i = 0; i < QR_TOKEN_LENGTH; i++) {
+        // Use modulo to map random byte to our alphanumeric character set
+        const charIndex = randomBytes[i] % ALPHANUMERIC_CHARS.length;
+        token += ALPHANUMERIC_CHARS[charIndex];
+    }
+
+    return token;
 }
+
+/**
+ * Encrypt a QR token for secure storage
+ * Uses AES-256-GCM encryption
+ * 
+ * @param token - Plain token to encrypt
+ * @returns string - Encrypted token
+ */
+export function encryptQRToken(token: string): string {
+    return encrypt(token);
+}
+
+/**
+ * Decrypt an encrypted QR token
+ * 
+ * @param encryptedToken - Encrypted token from database
+ * @returns string - Original plain token
+ */
+export function decryptQRToken(encryptedToken: string): string {
+    return decrypt(encryptedToken);
+}
+
+/**
+ * Generate a hash of the token for lookup
+ * This allows us to find tokens without decrypting all of them
+ * 
+ * @param token - Plain token
+ * @returns string - SHA-256 hash of the token
+ */
+export function hashQRToken(token: string): string {
+    return sha256Hash(token);
+}
+
 
 /**
  * Get the full URL for a QR code

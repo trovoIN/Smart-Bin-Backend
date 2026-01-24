@@ -576,6 +576,42 @@ export const updateCollectorStatusHandler = withAdminAuth(
     }
 );
 
+/**
+ * GET /api/dashboard/collectors/status
+ * Get all collector statuses (Admin only)
+ */
+export const getCollectorStatusesHandler = withAdminAuth(
+    async (request: NextRequest, { user }: { user: AuthContext }) => {
+        try {
+            const collectors = await prisma.collector.findMany({
+                select: {
+                    id: true,
+                    name: true,
+                    phone: true,
+                    status: true,
+                    assignedRoute: true,
+                    _count: {
+                        select: { units: true, collections: true }
+                    }
+                },
+                orderBy: { name: 'asc' },
+            });
+
+            const stats = {
+                total: collectors.length,
+                active: collectors.filter(c => c.status === 'ACTIVE').length,
+                inactive: collectors.filter(c => c.status === 'INACTIVE').length,
+            };
+
+            return successResponse({ collectors, stats });
+        } catch (error) {
+            console.error('Get collector statuses error:', error);
+            return errorResponse('Failed to get collector statuses', 'SERVER_ERROR', 500);
+        }
+    }
+);
+
+
 // ============================================
 // QR MANAGEMENT
 // ============================================

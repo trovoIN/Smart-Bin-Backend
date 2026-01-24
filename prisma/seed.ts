@@ -82,22 +82,39 @@ async function main() {
     collectors.forEach(c => console.log(`  ✅ Collector: ${c.name} (${c.phone})`));
 
     // ============================================
-    // 4. Create QR Codes
+    // 4. Create QR Codes (SQR + 16 alphanumeric chars)
     // ============================================
     console.log('Creating QR codes...');
+
+    // Generate SQR format tokens: SQR + 16 alphanumeric characters
+    const generateSeedToken = (index: number): string => {
+        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const paddedIndex = String(index).padStart(4, '0');
+        // Create a deterministic but random-looking token for seeding
+        let token = 'SQR';
+        for (let i = 0; i < 16; i++) {
+            // Use a simple hash based on index and position for reproducible seeds
+            const charIndex = (index * 7 + i * 13 + paddedIndex.charCodeAt(i % 4)) % chars.length;
+            token += chars[charIndex];
+        }
+        return token;
+    };
+
     const qrCodes = await Promise.all(
-        Array.from({ length: 10 }, (_, i) =>
-            prisma.qRCode.upsert({
-                where: { secureToken: `SEED_QR_${String(i + 1).padStart(3, '0')}` },
+        Array.from({ length: 10 }, (_, i) => {
+            const token = generateSeedToken(i + 1);
+            return prisma.qRCode.upsert({
+                where: { secureToken: token },
                 update: {},
                 create: {
-                    secureToken: `SEED_QR_${String(i + 1).padStart(3, '0')}`,
+                    secureToken: token,
                     status: i < 5 ? 'ACTIVE' : 'UNASSIGNED', // First 5 active
                     activatedAt: i < 5 ? new Date() : null,
                 },
-            })
-        )
+            });
+        })
     );
+
     console.log(`  ✅ Created ${qrCodes.length} QR codes (5 active, 5 unassigned)`);
 
     // ============================================
