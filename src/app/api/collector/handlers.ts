@@ -150,7 +150,7 @@ export const qrResolveHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -191,7 +191,7 @@ export const unitRegisterHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -237,7 +237,7 @@ export const markCollectionHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -337,7 +337,7 @@ export const verifyPaymentHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -399,7 +399,7 @@ export const createComplaintHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -450,7 +450,7 @@ export const syncHandler = withCollectorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );

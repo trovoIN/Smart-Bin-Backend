@@ -342,7 +342,7 @@ export const resolveDisputeHandler = withSupervisorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -449,7 +449,7 @@ export const resolveComplaintHandler = withSupervisorAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -516,7 +516,7 @@ export const createCollectorHandler = withAdminAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -615,7 +615,7 @@ export const generateQRCodesHandler = withAdminAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -710,7 +710,7 @@ export const createUserHandler = withAdminAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );

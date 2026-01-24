@@ -125,7 +125,7 @@ export async function requestOTPHandler(request: NextRequest) {
 
         if (!validation.success) {
             return errorResponse(
-                validation.error.errors[0].message,
+                validation.error.issues[0].message,
                 'VALIDATION_ERROR',
                 400
             );
@@ -208,7 +208,7 @@ export async function verifyOTPHandler(request: NextRequest) {
 
         if (!validation.success) {
             return errorResponse(
-                validation.error.errors[0].message,
+                validation.error.issues[0].message,
                 'VALIDATION_ERROR',
                 400
             );
@@ -281,7 +281,7 @@ export async function passwordLoginHandler(request: NextRequest) {
 
         if (!validation.success) {
             return errorResponse(
-                validation.error.errors[0].message,
+                validation.error.issues[0].message,
                 'VALIDATION_ERROR',
                 400
             );
@@ -336,7 +336,7 @@ export async function refreshTokenHandler(request: NextRequest) {
 
         if (!validation.success) {
             return errorResponse(
-                validation.error.errors[0].message,
+                validation.error.issues[0].message,
                 'VALIDATION_ERROR',
                 400
             );

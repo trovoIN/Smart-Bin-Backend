@@ -227,7 +227,7 @@ export const claimPaymentHandler = withHouseholdAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
@@ -315,7 +315,7 @@ export const createComplaintHandler = withHouseholdAuth(
 
             if (!validation.success) {
                 return errorResponse(
-                    validation.error.errors[0].message,
+                    validation.error.issues[0].message,
                     'VALIDATION_ERROR',
                     400
                 );
