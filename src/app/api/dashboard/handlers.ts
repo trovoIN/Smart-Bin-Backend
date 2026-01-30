@@ -599,8 +599,8 @@ export const getCollectorStatusesHandler = withAdminAuth(
 
             const stats = {
                 total: collectors.length,
-                active: collectors.filter(c => c.status === 'ACTIVE').length,
-                inactive: collectors.filter(c => c.status === 'INACTIVE').length,
+                active: collectors.filter((c: any) => c.status === 'ACTIVE').length,
+                inactive: collectors.filter((c: any) => c.status === 'INACTIVE').length,
             };
 
             return successResponse({ collectors, stats });
