@@ -283,7 +283,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         orderBy: { unitNumber: 'asc' },
     });
 
-    const result = units.map((unit) => ({
+    const result = units.map((unit: any) => ({
         id: unit.id,
         unitNumber: unit.unitNumber,
         ward: unit.ward,
@@ -291,7 +291,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         lastCollectedAt: unit.collections[0]?.collectedAt || null,
     }));
 
-    const collected = result.filter((u) => u.collectedToday).length;
+    const collected = result.filter((u: any) => u.collectedToday).length;
 
     return {
         units: result,
