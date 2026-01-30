@@ -129,7 +129,6 @@ export const getProfileHandler = withCollectorAuth(
             return errorResponse('Failed to get profile', 'SERVER_ERROR', 500);
         }
     }
-    }
 );
 
 /**
