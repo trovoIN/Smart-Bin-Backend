@@ -14,6 +14,7 @@
 
 import prisma from '@/lib/db/prisma';
 import { Collection, CollectionMarkInput, CollectionHistory } from '@/types';
+import { notificationService } from '@/lib/notifications';
 
 // ============================================
 // MARK COLLECTION
@@ -49,7 +50,7 @@ export async function markCollected(
     // Verify collector is assigned to this unit
     const unit = await prisma.unit.findUnique({
         where: { id: unitId },
-        select: { id: true, collectorId: true },
+        select: { id: true, collectorId: true, householdPhone: true, unitNumber: true },
     });
 
     if (!unit) {
@@ -110,6 +111,18 @@ export async function markCollected(
             },
         },
     });
+
+    // Send notification to household
+    try {
+        if (unit.householdPhone) {
+            await notificationService.sendCollectionConfirmation(
+                unit.householdPhone,
+                unit.unitNumber
+            );
+        }
+    } catch (error) {
+        console.error('Failed to send collection notification:', error);
+    }
 
     return collection as Collection;
 }

@@ -136,12 +136,17 @@ model Unit {
   householdPhone String       // Registered phone for OTP
   ward           String?      // Ward/area for grouping
   
+  // Location Data
+  latitude       Float?
+  longitude      Float?
+  residentName   String?      // Name of the resident (for demo/display)
+
   // Foreign keys
   qrId           Int          @unique // One QR per unit
   qr             QRCode       @relation(fields: [qrId], references: [id])
   
-  collectorId    Int          // Assigned collector
-  collector      Collector    @relation(fields: [collectorId], references: [id])
+  collectorId    Int?         // Assigned collector (Optional for self-registered)
+  collector      Collector?   @relation(fields: [collectorId], references: [id])
   
   // Timestamps
   createdAt      DateTime     @default(now())

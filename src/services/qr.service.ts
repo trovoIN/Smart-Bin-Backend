@@ -209,9 +209,30 @@ export async function generateSingleQRCode(): Promise<QRCode> {
  *   // Show unit details
  * }
  */
+
+
+/**
+ * Calculate distance between two points in meters (Haversine formula)
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371e3; // Earth radius in meters
+    const phi1 = lat1 * Math.PI / 180;
+    const phi2 = lat2 * Math.PI / 180;
+    const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+    const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+        Math.cos(phi1) * Math.cos(phi2) *
+        Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c;
+}
+
 export async function resolveQRCode(
     token: string,
-    userRole?: UserRole
+    userRole?: UserRole,
+    location?: { latitude: number; longitude: number }
 ): Promise<QRResolveResponse> {
     // Find QR by token
     const qrCode = await prisma.qRCode.findUnique({
@@ -257,6 +278,25 @@ export async function resolveQRCode(
 
     // QR is active - return unit details
     const unit = qrCode.unit!;
+
+    // LOCATION CHECK (For Collectors)
+    // @ts-ignore: Prisma types pending update
+    if (userRole === UserRole.COLLECTOR && location && unit.latitude && unit.longitude) {
+        const distance = calculateDistance(
+            location.latitude,
+            location.longitude,
+            // @ts-ignore
+            unit.latitude,
+            // @ts-ignore
+            unit.longitude
+        );
+
+        // 100 meters threshold
+        if (distance > 100) {
+            throw new QRLocationError(`You are too far from the household (${Math.round(distance)}m). Please move closer.`);
+        }
+    }
+
     const lastCollection = unit.collections[0];
     const lastPayment = unit.payments[0];
 
@@ -268,8 +308,8 @@ export async function resolveQRCode(
             unitNumber: unit.unitNumber,
             phoneNumber: '', // Will be set based on role
             lastCollectedAt: lastCollection?.collectedAt,
-            paymentStatus: lastPayment?.status || 'UNPAID',
-            collectorName: unit.collector.name,
+            paymentStatus: (lastPayment?.status || 'UNPAID') as any, // Fix enum mismatch
+            collectorName: unit.collector?.name || 'Unassigned', // Handle null collector
         },
     };
 
@@ -533,5 +573,12 @@ export class QRAlreadyActiveError extends QRError {
     constructor(message: string = 'QR code is already active') {
         super(message);
         this.name = 'QRAlreadyActiveError';
+    }
+}
+
+export class QRLocationError extends QRError {
+    constructor(message: string = 'Location mismatch') {
+        super(message);
+        this.name = 'QRLocationError';
     }
 }

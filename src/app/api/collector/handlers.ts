@@ -38,10 +38,8 @@ const qrResolveSchema = z.object({
 // Unit registration schema
 const unitRegisterSchema = z.object({
     qrToken: z.string().min(10, 'Invalid QR token'),
-    unitNumber: z.string().min(1, 'Unit number required'),
-    householdPhone: z.string()
-        .min(10, 'Phone must be at least 10 digits')
-        .max(15, 'Phone too long'),
+    unitNumber: z.string().optional(),
+    householdPhone: z.string().optional(),
 });
 
 // Mark collection schema
@@ -180,13 +178,19 @@ export const qrResolveHandler = withCollectorAuth(
 
 /**
  * POST /api/collector/unit/register
- * Register a new unit (activate QR code)
- * Links house to collector
+ * Register a new unit Or Assign self to existing unassigned unit
+ * Called when Collector scans a QR and chooses "Register" or "Take Up"
  */
 export const unitRegisterHandler = withCollectorAuth(
     async (request: NextRequest, { user }: { user: AuthContext }) => {
         try {
             const body = await request.json();
+
+            // Allow simplified schema for "Take Up" (only QR token needed)
+            // But validation schema currently requires unitNumber/phone.
+            // We should relax it if we want purely "Take Up" flow, or keep it if we want to update details.
+
+            // For now, let's assume we proceed with the current schema
             const validation = unitRegisterSchema.safeParse(body);
 
             if (!validation.success) {
@@ -196,6 +200,10 @@ export const unitRegisterHandler = withCollectorAuth(
                     400
                 );
             }
+
+            // We need a Service function that handles:
+            // 1. If QR corresponds to existing Unassigned Unit -> Update collectorId (Take Up)
+            // 2. If QR is Unassigned -> Create New Unit (Register)
 
             const unit = await registerUnit(user.userId, validation.data);
 

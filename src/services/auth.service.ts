@@ -208,7 +208,7 @@ export async function verifyHouseholdOTP(
         unit: {
             id: unit.id,
             unitNumber: unit.unitNumber,
-            collectorName: unit.collector.name,
+            collectorName: unit.collector?.name || 'Unassigned',
         },
     };
 }

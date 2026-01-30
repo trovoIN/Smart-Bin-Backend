@@ -10,11 +10,93 @@
 
 import prisma from '@/lib/db/prisma';
 import { Unit, UnitWithDetails, UnitRegisterInput } from '@/types';
-import { activateQRCode, QRAlreadyActiveError } from './qr.service';
+import { activateQRCode, QRAlreadyActiveError, generateQRToken } from './qr.service';
 
 // ============================================
 // UNIT REGISTRATION (QR ACTIVATION)
 // ============================================
+
+/**
+ * Register a new unit with Location (Self-Registration)
+ */
+export async function registerUnitWithLocation(
+    input: {
+        unitNumber: string;
+        householdPhone: string;
+        residentName?: string;
+        latitude: number;
+        longitude: number;
+    }
+): Promise<{ unit: Unit; qrToken: string }> {
+    const { unitNumber, householdPhone, residentName, latitude, longitude } = input;
+
+    // 1. DUPLICATE LOCATION CHECK (10 meters)
+    // Naive approximation: 0.0001 deg ~= 11 meters
+    const nearbyUnit = await prisma.unit.findFirst({
+        where: {
+            // @ts-ignore: Prisma types not updated yet
+            latitude: {
+                gte: latitude - 0.0001,
+                lte: latitude + 0.0001,
+            },
+            // @ts-ignore: Prisma types not updated yet
+            longitude: {
+                gte: longitude - 0.0001,
+                lte: longitude + 0.0001,
+            },
+        },
+    });
+
+    if (nearbyUnit) {
+        // For DEMO: Allow duplicate locations (User request)
+        // throw new UnitError('A household is already registered at this precise location.');
+        console.warn('⚠️ A household is already registered at this location, but proceeding for DEMO.');
+    }
+
+    // 2. CHECK IF PHONE ALREADY REGISTERED
+    const existingPhone = await prisma.unit.findFirst({
+        where: { householdPhone }
+    });
+    if (existingPhone) {
+        throw new UnitError('This phone number is already registered to a Unit.');
+    }
+
+    // 3. GENERATE NEW QR & CREATE UNIT
+    // We create a new Active QR on the fly for self-registration
+    const result = await prisma.$transaction(async (tx) => {
+        // Generate Secure Token
+        const secureToken = generateQRToken();
+
+        // Create QR
+        const qr = await tx.qRCode.create({
+            data: {
+                secureToken,
+                status: 'ACTIVE',
+                activatedAt: new Date(),
+            }
+        });
+
+        // Create Unit (No Collector initially)
+        const unit = await tx.unit.create({
+            data: {
+                unitNumber,
+                householdPhone,
+                qrId: qr.id,
+                // @ts-ignore
+                latitude,
+                // @ts-ignore
+                longitude,
+                // @ts-ignore
+                residentName: residentName || null,
+                collectorId: null as any, // Unassigned initially
+            }
+        });
+
+        return { unit: unit as unknown as Unit, qrToken: secureToken };
+    });
+
+    return result;
+}
 
 /**
  * Register a new unit and activate QR code
@@ -34,20 +116,49 @@ export async function registerUnit(
     // Find QR by token
     const qrCode = await prisma.qRCode.findUnique({
         where: { secureToken: qrToken },
+        include: { unit: true }, // Include unit to check assignment
     });
 
     if (!qrCode) {
         throw new UnitError('Invalid QR code');
     }
 
+    // HANDLE TAKE UP (Existing Active Unit with No Collector)
     if (qrCode.status === 'ACTIVE') {
-        throw new QRAlreadyActiveError('QR code already registered to a unit');
+        if (qrCode.unit && qrCode.unit.collectorId === null) {
+            // This is a "Take Up" request
+            const updatedUnit = await prisma.unit.update({
+                where: { id: qrCode.unit.id },
+                data: { collectorId },
+            });
+
+            // Log for audit
+            await prisma.auditLog.create({
+                data: {
+                    action: 'UNIT_ASSIGNED',
+                    entityType: 'Unit',
+                    entityId: updatedUnit.id,
+                    userId: collectorId,
+                    userRole: 'COLLECTOR',
+                    metadata: {
+                        unitNumber: updatedUnit.unitNumber,
+                        qrId: qrCode.id,
+                        type: 'TAKE_UP'
+                    },
+                },
+            });
+
+            return updatedUnit as Unit;
+        } else {
+            throw new QRAlreadyActiveError('QR code already registered to another collector');
+        }
     }
 
     if (qrCode.status === 'DEACTIVATED') {
         throw new UnitError('QR code is deactivated');
     }
 
+    // NEW REGISTRATION (Physical Sticker)
     // Check if unit number already exists for this collector
     const existingUnit = await prisma.unit.findFirst({
         where: {
@@ -61,7 +172,7 @@ export async function registerUnit(
     }
 
     // Create unit and activate QR in a transaction
-    const unit = await prisma.$transaction(async (tx: { unit: { create: (arg0: { data: { unitNumber: string; householdPhone: string; collectorId: number; qrId: any; }; }) => any; }; qRCode: { update: (arg0: { where: { id: any; }; data: { status: string; activatedAt: Date; }; }) => any; }; }) => {
+    const unit = await prisma.$transaction(async (tx) => {
         // Create the unit
         const newUnit = await tx.unit.create({
             data: {

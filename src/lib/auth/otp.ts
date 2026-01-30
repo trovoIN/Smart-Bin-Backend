@@ -75,7 +75,26 @@ export async function generateAndStoreOTP(request: OTPRequest): Promise<{
     await invalidateExistingOTPs(phone, purpose);
 
     // Generate new OTP
-    const otp = generateOTP(OTP_LENGTH);
+    // Use fixed OTP for test accounts
+    // Use fixed OTP for test accounts
+    let otp = generateOTP(OTP_LENGTH);
+    const demoNumbers = [
+        '+919000000000', // Admin
+        '+919000000001', // Supervisor
+        '+919111111111', // Collector 1
+        '+919111111112', // Collector 2
+        '+919222222200', // Household 1
+        '+919222222201', // Household 2
+        '+919222222202', // Household 3
+        '+919222222203', // Household 4
+        '+919222222204', // Household 5
+        '+919444444440', // Demo Collector (New User)
+        '+9194444444440', // Demo Collector (Typo variant)
+    ];
+
+    if (demoNumbers.includes(phone)) {
+        otp = '123456';
+    }
 
     // Hash OTP before storing (security!)
     const hashedOTP = await hashPassword(otp);
@@ -315,12 +334,17 @@ function getSMSProvider(): SMSProvider {
  * @param otp - OTP code to send
  * @returns boolean - True if sent successfully
  */
+import { notificationService } from '@/lib/notifications';
+
+/**
+ * Send OTP via SMS
+ */
 export async function sendOTPviaSMS(
     phone: string,
     otp: string
 ): Promise<boolean> {
-    const provider = getSMSProvider();
-    return provider.sendOTP(phone, otp);
+    await notificationService.sendOTP(phone, otp);
+    return true;
 }
 
 // ============================================

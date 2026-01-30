@@ -8,7 +8,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { withHouseholdAuth, AuthContext } from '@/middleware/auth.middleware';
-import { getUnitById } from '@/services/unit.service';
+import { registerUnitWithLocation, getUnitById } from '@/services/unit.service';
 import { getCollectionHistory } from '@/services/collection.service';
 import {
     claimPayment,
@@ -20,12 +20,23 @@ import {
     getComplaintsForUnit,
 } from '@/services/complaint.service';
 import prisma from '@/lib/db/prisma';
+import { generateTokenPair } from '@/lib/auth/jwt';
+import { UserRole } from '@/types';
 
 // ============================================
 // VALIDATION SCHEMAS
 // ============================================
 
-// Payment claim schema
+// Registration Schema
+const registrationSchema = z.object({
+    unitNumber: z.string().min(1, "Unit Number is required"),
+    householdPhone: z.string().regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone number"),
+    residentName: z.string().optional(),
+    latitude: z.number().min(-90).max(90),
+    longitude: z.number().min(-180).max(180),
+});
+
+
 const paymentClaimSchema = z.object({
     month: z.string().regex(/^\d{4}-\d{2}$/, 'Month must be in YYYY-MM format'),
     proofUrl: z.string().url().optional(),
@@ -53,6 +64,91 @@ function errorResponse(message: string, code: string = 'ERROR', status: number =
         { status }
     );
 }
+
+// ============================================
+// HOUSEHOLD REGISTER
+// ============================================
+
+/**
+ * POST /api/household/register
+ * Register new household with location
+ */
+export async function registerHouseholdHandler(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const validation = registrationSchema.safeParse(body);
+
+        if (!validation.success) {
+            return errorResponse(
+                validation.error.issues[0].message,
+                'VALIDATION_ERROR',
+                400
+            );
+        }
+
+        const { unitNumber, householdPhone, residentName, latitude, longitude } = validation.data;
+
+        // Call Service
+        const { unit, qrToken } = await registerUnitWithLocation({
+            unitNumber,
+            householdPhone,
+            residentName,
+            latitude,
+            longitude
+        });
+
+        // Generate Auth Tokens immediately
+        const tokens = generateTokenPair(unit.id, UserRole.HOUSEHOLD, householdPhone);
+
+        return successResponse({
+            message: 'Registration successful',
+            tokens,
+            unit: {
+                id: unit.id,
+                unitNumber: unit.unitNumber,
+                qrToken: qrToken // Only time we show token directly to user? Or just for display?
+            }
+        }, 201);
+
+    } catch (error) {
+        console.error('Registration error:', error);
+        if (error instanceof Error && error.name === 'UnitError') {
+            return errorResponse(error.message, 'REGISTRATION_ERROR', 400);
+        }
+        return errorResponse('Failed to register', 'SERVER_ERROR', 500);
+    }
+}
+
+// ============================================
+// GET QR CODE
+// ============================================
+
+/**
+ * GET /api/household/qr
+ * Get QR Token for display
+ */
+export const getQRHandler = withHouseholdAuth(
+    async (request: NextRequest, { user }: { user: AuthContext }) => {
+        try {
+            const unit = await prisma.unit.findUnique({
+                where: { id: user.userId },
+                include: { qr: true }
+            });
+
+            if (!unit || !unit.qr) {
+                return errorResponse('QR Code not found for this unit', 'NOT_FOUND', 404);
+            }
+
+            return successResponse({
+                secureToken: unit.qr.secureToken,
+                status: unit.qr.status
+            });
+        } catch (error) {
+            console.error('Get QR error:', error);
+            return errorResponse('Failed to fetch QR', 'SERVER_ERROR', 500);
+        }
+    }
+);
 
 // ============================================
 // HOUSEHOLD PROFILE / DASHBOARD
@@ -346,6 +442,61 @@ export const createComplaintHandler = withHouseholdAuth(
             }
 
             return errorResponse('Failed to create complaint', 'SERVER_ERROR', 500);
+        }
+    }
+);
+
+/**
+ * GET /api/household/dashboard
+ * Get full dashboard data
+ */
+export const getDashboardHandler = withHouseholdAuth(
+    async (request: NextRequest, { user }: { user: AuthContext }) => {
+        try {
+            // 1. Get Unit info (with Collector)
+            const unit = await prisma.unit.findUnique({
+                where: { id: user.userId },
+                include: {
+                    collector: {
+                        select: { id: true, name: true, phone: true },
+                    },
+                },
+            });
+
+            if (!unit) return errorResponse('Unit not found', 'NOT_FOUND', 404);
+
+            // 2. Get Payment Status
+            const currentPayment = await getCurrentPaymentStatus(unit.id);
+
+            // 3. Get Collection History (last 7 days for dashboard)
+            const recentCollections = await getCollectionHistory(unit.id, 7);
+
+            // 4. Construct Response (matching Frontend expectations)
+            return successResponse({
+                unit: {
+                    id: unit.id,
+                    unitNo: unit.unitNumber,
+                    ward: unit.ward,
+                },
+                collector: unit.collector ? {
+                    id: unit.collector.id,
+                    name: unit.collector.name,
+                    mobile: unit.collector.phone,
+                } : null,
+                currentPayment: {
+                    month: currentPayment.month,
+                    amount: currentPayment.amount,
+                    status: currentPayment.status,
+                },
+                recentCollections: recentCollections.map(c => ({
+                    id: c.date.toISOString(),
+                    date: c.date,
+                    status: c.status,
+                })),
+            });
+        } catch (error) {
+            console.error('Get dashboard error:', error);
+            return errorResponse('Failed to get dashboard', 'SERVER_ERROR', 500);
         }
     }
 );
