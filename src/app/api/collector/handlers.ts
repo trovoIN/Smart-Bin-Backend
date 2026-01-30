@@ -129,6 +129,26 @@ export const getProfileHandler = withCollectorAuth(
             return errorResponse('Failed to get profile', 'SERVER_ERROR', 500);
         }
     }
+    }
+);
+
+/**
+ * PUT /api/collector/profile
+ * Update authenticated collector's profile
+ */
+export const updateProfileHandler = withCollectorAuth(
+    async (request: NextRequest, { user }: { user: AuthContext }) => {
+        try {
+            // Placeholder: Implement actual update logic here
+            // const body = await request.json();
+            // ... update logic
+
+            return successResponse({ message: 'Profile update not implemented yet' });
+        } catch (error) {
+            console.error('Update profile error:', error);
+            return errorResponse('Failed to update profile', 'SERVER_ERROR', 500);
+        }
+    }
 );
 
 // ============================================
