@@ -485,7 +485,7 @@ export const getCollectorsHandler = withAuth(
             const collectors = await getActiveCollectors();
 
             // Hide UPI from GOVT users
-            const result = collectors.map((c) => ({
+            const result = collectors.map((c: any) => ({
                 id: c.id,
                 name: c.name,
                 phone: c.phone,

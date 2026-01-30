@@ -115,7 +115,7 @@ export async function claimPayment(
         },
     });
 
-    return payment as Payment;
+    return payment as unknown as Payment;
 }
 
 // ============================================
@@ -176,7 +176,7 @@ export async function verifyPayment(
 
         await logPaymentAction('PAYMENT_VERIFIED', paymentId, collectorId);
 
-        return updated as Payment;
+        return updated as unknown as Payment;
     }
 
     // Handle rejection
@@ -199,7 +199,7 @@ export async function verifyPayment(
             rejectionReason,
         });
 
-        return updated as Payment;
+        return updated as unknown as Payment;
     }
 
     throw new PaymentError('Invalid action');
@@ -252,7 +252,7 @@ export async function resolveDispute(
         notes,
     });
 
-    return updated as Payment;
+    return updated as unknown as Payment;
 }
 
 // ============================================
@@ -309,7 +309,7 @@ export async function getPaymentHistory(
         take: limit,
     });
 
-    return payments as Payment[];
+    return payments as unknown as Payment[];
 }
 
 /**
@@ -443,7 +443,7 @@ export async function getDefaulters(
         .map((unit) => ({
             unitId: unit.id,
             unitNumber: unit.unitNumber,
-            collectorName: unit.collector.name,
+            collectorName: unit.collector?.name || 'N/A',
             monthsUnpaid: unit.payments.length,
             totalDue: unit.payments.reduce((sum, p) => sum + Number(p.amount), 0),
         }));
@@ -578,7 +578,7 @@ async function logPaymentAction(
                 entityType: 'Payment',
                 entityId: paymentId,
                 userId,
-                metadata,
+                metadata: metadata as any,
             },
         });
     } catch (error) {

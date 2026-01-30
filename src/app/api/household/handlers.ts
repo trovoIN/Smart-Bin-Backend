@@ -195,9 +195,9 @@ export const getProfileHandler = withHouseholdAuth(
                     unitNumber: unit.unitNumber,
                     ward: unit.ward,
                 },
-                collector: {
+                collector: unit.collector ? {
                     name: unit.collector.name,
-                },
+                } : null,
                 lastCollection: unit.collections[0]?.collectedAt || null,
                 payment: paymentStatus,
             });
@@ -294,6 +294,10 @@ export const getUPIDetailsHandler = withHouseholdAuth(
 
             if (!unit) {
                 return errorResponse('Unit not found', 'NOT_FOUND', 404);
+            }
+
+            if (!unit.collector) {
+                return errorResponse('No collector assigned', 'NOT_FOUND', 404);
             }
 
             const paymentStatus = await getCurrentPaymentStatus(user.userId);

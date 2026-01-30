@@ -412,10 +412,10 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
             unitId: unit.id,
             unitNumber: unit.unitNumber,
             ward: unit.ward,
-            collectorName: unit.collector.name,
+            collectorName: unit.collector?.name || 'Unassigned',
             daysMissed,
         };
-    });
+    }).filter(unit => unit.collectorName !== 'Unassigned');
 }
 
 // ============================================

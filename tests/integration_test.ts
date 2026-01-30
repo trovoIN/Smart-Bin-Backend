@@ -1,4 +1,4 @@
-import { requestOtp } from '../src/lib/auth/otp';
+import { requestOTP } from '../src/lib/auth/otp';
 import { notificationService } from '../src/lib/notifications';
 import { PrismaClient } from '@prisma/client';
 
@@ -21,7 +21,7 @@ async function runTests() {
         console.log('\n2. Verifying User Exists...');
         const user = await prisma.user.findFirst({ where: { phone } });
         if (user) {
-            console.log(`✅ User found: ${user.firstName} ${user.lastName}`);
+            console.log(`✅ User found: ${user.name}`);
         } else {
             console.log('❌ User not found (Warning: might need seeding)');
         }

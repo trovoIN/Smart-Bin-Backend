@@ -22,9 +22,8 @@ import {
     extractBearerToken,
     hasRole,
     hasMinimumRole,
-    DecodedToken,
 } from '@/lib/auth/jwt';
-import { UserRole } from '@/types';
+import { UserRole, DecodedToken } from '@/types';
 
 // ============================================
 // TYPES
