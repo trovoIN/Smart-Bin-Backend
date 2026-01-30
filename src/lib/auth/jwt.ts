@@ -92,7 +92,7 @@ export function generateAccessToken(
     };
 
     return jwt.sign(payload, getJWTSecret(), {
-        expiresIn: ACCESS_TOKEN_EXPIRES,
+        expiresIn: ACCESS_TOKEN_EXPIRES as any,
         algorithm: 'HS256', // HMAC with SHA-256
     });
 }
@@ -119,7 +119,7 @@ export function generateRefreshToken(
     };
 
     return jwt.sign(payload, getJWTSecret(), {
-        expiresIn: REFRESH_TOKEN_EXPIRES,
+        expiresIn: REFRESH_TOKEN_EXPIRES as any,
         algorithm: 'HS256',
     });
 }
