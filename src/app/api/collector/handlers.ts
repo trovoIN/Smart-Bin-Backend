@@ -224,7 +224,11 @@ export const unitRegisterHandler = withCollectorAuth(
             // 1. If QR corresponds to existing Unassigned Unit -> Update collectorId (Take Up)
             // 2. If QR is Unassigned -> Create New Unit (Register)
 
-            const unit = await registerUnit(user.userId, validation.data);
+            const unit = await registerUnit(user.userId, {
+                qrToken: validation.data.qrToken,
+                unitNumber: validation.data.unitNumber || '',
+                householdPhone: validation.data.householdPhone || '',
+            });
 
             return successResponse({
                 message: 'Unit registered successfully',

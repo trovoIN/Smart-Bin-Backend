@@ -152,6 +152,8 @@ async function main() {
 
         for (const unit of units) {
             // Randomly skip some collections (30% miss rate)
+            // Skip collections for units without collectors
+            if (!unit.collectorId) continue;
             if (Math.random() > 0.7) continue;
 
             try {
