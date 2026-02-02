@@ -291,7 +291,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         lastCollectedAt: unit.collections[0]?.collectedAt || null,
     }));
 
-    const collected = result.filter((u) => u.collectedToday).length;
+    const collected = result.filter((u: typeof result[number]) => u.collectedToday).length;
 
     return {
         units: result,
