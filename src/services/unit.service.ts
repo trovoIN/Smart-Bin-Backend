@@ -63,7 +63,7 @@ export async function registerUnitWithLocation(
 
     // 3. GENERATE NEW QR & CREATE UNIT
     // We create a new Active QR on the fly for self-registration
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: any) => {
         // Generate Secure Token
         const secureToken = generateQRToken();
 
@@ -172,7 +172,7 @@ export async function registerUnit(
     }
 
     // Create unit and activate QR in a transaction
-    const unit = await prisma.$transaction(async (tx) => {
+    const unit = await prisma.$transaction(async (tx: any) => {
         // Create the unit
         const newUnit = await tx.unit.create({
             data: {
