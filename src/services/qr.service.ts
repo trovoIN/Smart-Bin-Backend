@@ -151,7 +151,7 @@ export async function generateBulkQRCodes(
 
     // Create QR codes in database
     const createdQRs = await prisma.$transaction(
-        uniqueTokens.map((token) =>
+        uniqueTokens.map((token: string) =>
             prisma.qRCode.create({
                 data: {
                     secureToken: prefix ? `${prefix}-${token}` : token,
@@ -477,7 +477,7 @@ export async function generateBulkQRImages(
     tokens: string[]
 ): Promise<Array<{ token: string; dataUrl: string }>> {
     const images = await Promise.all(
-        tokens.map(async (token) => ({
+        tokens.map(async (token: string) => ({
             token,
             dataUrl: await generateQRImageDataUrl(token),
         }))

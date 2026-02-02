@@ -491,8 +491,8 @@ export const syncHandler = withCollectorAuth(
 
             // Process collections
             const collectionActions = actions
-                .filter((a) => a.type === 'COLLECTION')
-                .map((a) => ({
+                .filter((a: any) => a.type === 'COLLECTION')
+                .map((a: any) => ({
                     ...a.payload,
                     collectedAt: new Date(a.timestamp),
                     localId: a.localId,

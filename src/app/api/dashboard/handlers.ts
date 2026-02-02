@@ -663,7 +663,7 @@ export const generateQRCodesHandler = withAdminAuth(
             return successResponse({
                 message: `Generated ${qrCodes.length} QR codes`,
                 count: qrCodes.length,
-                qrCodes: qrCodes.map((qr) => ({
+                qrCodes: qrCodes.map((qr: any) => ({
                     id: qr.id,
                     token: qr.secureToken,
                 })),

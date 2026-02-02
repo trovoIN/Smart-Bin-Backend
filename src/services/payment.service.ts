@@ -439,13 +439,13 @@ export async function getDefaulters(
 
     // Filter to those with unpaid payments
     const defaulters = units
-        .filter((unit) => unit.payments.length >= monthsUnpaid)
-        .map((unit) => ({
+        .filter((unit: typeof units[number]) => unit.payments.length >= monthsUnpaid)
+        .map((unit: typeof units[number]) => ({
             unitId: unit.id,
             unitNumber: unit.unitNumber,
             collectorName: unit.collector?.name || 'N/A',
             monthsUnpaid: unit.payments.length,
-            totalDue: unit.payments.reduce((sum, p) => sum + Number(p.amount), 0),
+            totalDue: unit.payments.reduce((sum: number, p: { amount: any }) => sum + Number(p.amount), 0),
         }));
 
     return defaulters;

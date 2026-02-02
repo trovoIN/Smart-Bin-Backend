@@ -35,7 +35,7 @@ export class NotificationService {
         // Simplified:
         const message = data.message || `Notification Template: ${request.templateId}`;
 
-        const promises = channels.map(channel => {
+        const promises = channels.map((channel: NotificationChannel) => {
             const provider = providers[channel];
             if (provider && phone) {
                 return provider.send(phone, message);

@@ -386,7 +386,7 @@ export const getComplaintsHandler = withHouseholdAuth(
             const complaints = await getComplaintsForUnit(user.userId);
 
             return successResponse({
-                complaints: complaints.map((c) => ({
+                complaints: complaints.map((c: any) => ({
                     id: c.id,
                     type: c.complaintType,
                     status: c.status,
@@ -492,7 +492,7 @@ export const getDashboardHandler = withHouseholdAuth(
                     amount: currentPayment.amount,
                     status: currentPayment.status,
                 },
-                recentCollections: recentCollections.map(c => ({
+                recentCollections: recentCollections.map((c: any) => ({
                     id: c.date.toISOString(),
                     date: c.date,
                     status: c.status,
