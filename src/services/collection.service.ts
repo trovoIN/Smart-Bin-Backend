@@ -417,7 +417,7 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
         };
     });
 
-    return result.filter((unit) => unit.collectorName !== 'Unassigned');
+    return result.filter((unit: typeof result[number]) => unit.collectorName !== 'Unassigned');
 }
 
 // ============================================
