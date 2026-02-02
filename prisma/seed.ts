@@ -158,7 +158,7 @@ async function main() {
                 await prisma.collection.create({
                     data: {
                         unitId: unit.id,
-                        collectorId: unit.collectorId,
+                        collectorId: unit.collectorId!,
                         collectedAt: collectionDate,
                         latitude: 17.4239 + (Math.random() * 0.01),
                         longitude: 78.4738 + (Math.random() * 0.01),
