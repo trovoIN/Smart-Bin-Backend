@@ -1,0 +1,311 @@
+// ============================================
+// Smart Bin - Prisma Database Schema
+// ============================================
+// This file defines all database tables and relationships
+// for the Smart Bin garbage collection management system.
+// 
+// Key Entities:
+// - Collectors: Garbage collectors with UPI IDs
+// - QRCodes: Unique QR codes for each house
+// - Units: Houses/flats linked to QR codes
+// - Collections: Daily garbage collection records
+// - Payments: Monthly payment tracking
+// - Complaints: Service and payment complaints
+// - Users: Dashboard users (admin, supervisor, etc.)
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS - Define allowed values for status fields
+// ============================================
+
+// Status for collectors (active/inactive)
+enum CollectorStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// QR Code lifecycle status
+enum QRStatus {
+  UNASSIGNED // Generated but not attached to any house
+  ACTIVE // Attached and registered to a house
+  DEACTIVATED // Damaged or replaced
+}
+
+// Payment status workflow
+enum PaymentStatus {
+  UNPAID // No payment claimed
+  CLAIMED // Household claims payment made
+  VERIFIED // Collector confirmed payment received
+  DISPUTED // Payment rejected, under supervisor review
+}
+
+// Complaint status workflow
+enum ComplaintStatus {
+  OPEN // Newly raised
+  IN_REVIEW // Being reviewed by supervisor
+  RESOLVED // Issue resolved
+  REJECTED // Complaint rejected
+}
+
+// Who raised the complaint
+enum ComplaintRaisedBy {
+  HOUSEHOLD
+  COLLECTOR
+}
+
+// Complaint types
+enum ComplaintType {
+  GARBAGE_NOT_COLLECTED
+  SERVICE_ISSUE
+  NON_PAYMENT
+  REPEATED_DEFAULTER
+  OTHER
+}
+
+// User roles for dashboard (RBAC)
+enum UserRole {
+  ADMIN // Full system access
+  SUPERVISOR // Field-level control, ward-specific
+  CONTRACTOR // Operations + limited payment view
+  GOVT // Collection & complaints only, no payment data
+  COLLECTOR // Mobile app user
+  HOUSEHOLD // PWA user
+}
+
+// ============================================
+// MODELS - Database Tables
+// ============================================
+
+// Collectors table - Garbage collectors with UPI for payments
+model Collector {
+  id            Int             @id @default(autoincrement())
+  name          String
+  phone         String          @unique // Phone number for OTP login
+  upiId         String // UPI ID for receiving payments
+  assignedRoute String? // Optional route/area assignment
+  status        CollectorStatus @default(ACTIVE)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  units            Unit[] // Houses assigned to this collector
+  collections      Collection[] // Collection records by this collector
+  verifiedPayments Payment[]    @relation("VerifiedBy") // Payments verified by this collector
+  complaints       Complaint[]  @relation("CollectorComplaints") // Complaints raised by collector
+
+  // Indexes for faster queries
+  @@index([phone])
+  @@index([status])
+  @@map("collectors") // Table name in database
+}
+
+// QR Codes table - Unique secure tokens for each QR
+model QRCode {
+  id          Int      @id @default(autoincrement())
+  secureToken String   @unique // Random, non-guessable token (≥16 chars)
+  status      QRStatus @default(UNASSIGNED)
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  activatedAt DateTime? // When QR was registered to a house
+
+  // Relations
+  unit Unit? // One-to-one with Unit (only when ACTIVE)
+
+  // Indexes
+  @@index([secureToken])
+  @@index([status])
+  @@map("qr_codes")
+}
+
+// Units table - Houses/flats/apartments
+model Unit {
+  id             Int     @id @default(autoincrement())
+  unitNumber     String // House/flat number
+  householdPhone String // Registered phone for OTP
+  ward           String? // Ward/area for grouping
+
+  // Location Data
+  latitude     Float?
+  longitude    Float?
+  residentName String? // Name of the resident (for demo/display)
+
+  // Foreign keys
+  qrId Int    @unique // One QR per unit
+  qr   QRCode @relation(fields: [qrId], references: [id])
+
+  collectorId Int? // Assigned collector (Optional for self-registered)
+  collector   Collector? @relation(fields: [collectorId], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  collections Collection[] // Collection history
+  payments    Payment[] // Payment history
+  complaints  Complaint[] // Complaints for this unit
+
+  // Indexes
+  @@index([householdPhone])
+  @@index([ward])
+  @@index([collectorId])
+  @@map("units")
+}
+
+// Collections table - Daily garbage collection records
+model Collection {
+  id          Int       @id @default(autoincrement())
+  collectedAt DateTime  @default(now()) // Time of collection
+  latitude    Float? // GPS location
+  longitude   Float? // GPS location
+  syncedAt    DateTime? // When offline data was synced
+
+  // Foreign keys
+  unitId Int
+  unit   Unit @relation(fields: [unitId], references: [id])
+
+  collectorId Int
+  collector   Collector @relation(fields: [collectorId], references: [id])
+
+  // Constraint: Only one collection per unit per day
+  @@unique([unitId, collectedAt], name: "one_collection_per_day")
+  @@index([unitId])
+  @@index([collectorId])
+  @@index([collectedAt])
+  @@map("collections")
+}
+
+// Payments table - Monthly garbage fee tracking
+model Payment {
+  id              Int           @id @default(autoincrement())
+  month           String // Format: "YYYY-MM" (e.g., "2026-01")
+  amount          Decimal       @db.Decimal(10, 2) // Payment amount
+  status          PaymentStatus @default(UNPAID)
+  proofUrl        String? // Screenshot/proof upload URL
+  transactionRef  String? // UPI transaction reference ID
+  rejectionReason String? // Reason if collector rejects
+
+  // Timestamps
+  claimedAt  DateTime? // When household claimed payment
+  verifiedAt DateTime? // When collector verified
+  disputedAt DateTime? // When marked as disputed
+  resolvedAt DateTime? // When dispute was resolved
+
+  // Foreign keys
+  unitId Int
+  unit   Unit @relation(fields: [unitId], references: [id])
+
+  verifiedById Int? // Collector who verified
+  verifiedBy   Collector? @relation("VerifiedBy", fields: [verifiedById], references: [id])
+
+  // Constraint: One payment record per unit per month
+  @@unique([unitId, month])
+  @@index([status])
+  @@index([month])
+  @@map("payments")
+}
+
+// Complaints table - Service and payment issues
+model Complaint {
+  id              Int               @id @default(autoincrement())
+  complaintType   ComplaintType
+  raisedBy        ComplaintRaisedBy
+  description     String?
+  imageUrl        String? // Photo evidence
+  status          ComplaintStatus   @default(OPEN)
+  resolutionNotes String? // Admin/supervisor resolution notes
+
+  // Timestamps
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
+  // Foreign keys
+  unitId Int? // Optional for area-wide complaints
+  unit   Unit? @relation(fields: [unitId], references: [id])
+
+  collectorId Int? // If raised by collector
+  collector   Collector? @relation("CollectorComplaints", fields: [collectorId], references: [id])
+
+  resolvedById Int? // User who resolved
+  resolvedBy   User? @relation(fields: [resolvedById], references: [id])
+
+  @@index([status])
+  @@index([raisedBy])
+  @@index([createdAt])
+  @@map("complaints")
+}
+
+// Users table - Dashboard users (admins, supervisors, etc.)
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  phone        String   @unique
+  email        String?  @unique
+  passwordHash String? // For password-based login (optional)
+  role         UserRole
+  assignedWard String? // For supervisors - their ward
+  isActive     Boolean  @default(true)
+
+  // Timestamps
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastLoginAt DateTime?
+
+  // Relations
+  resolvedComplaints Complaint[] // Complaints resolved by this user
+
+  // Indexes
+  @@index([phone])
+  @@index([role])
+  @@map("users")
+}
+
+// OTP table - For OTP-based authentication
+model OTP {
+  id        Int      @id @default(autoincrement())
+  phone     String
+  code      String // 6-digit OTP code (hashed)
+  purpose   String // LOGIN, VERIFY_PAYMENT, etc.
+  expiresAt DateTime
+  attempts  Int      @default(0) // Track failed attempts
+  verified  Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([phone, purpose])
+  @@index([expiresAt])
+  @@map("otps")
+}
+
+// Audit Log table - For tracking all actions
+model AuditLog {
+  id         Int     @id @default(autoincrement())
+  action     String // e.g., "COLLECTION_MARKED", "PAYMENT_VERIFIED"
+  entityType String // e.g., "Collection", "Payment"
+  entityId   Int
+  userId     Int? // Who performed the action
+  userRole   String?
+  metadata   Json? // Additional context
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([action])
+  @@index([entityType, entityId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
