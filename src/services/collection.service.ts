@@ -283,7 +283,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         orderBy: { unitNumber: 'asc' },
     });
 
-    const result = units.map((unit: any) => ({
+    const result = units.map((unit) => ({
         id: unit.id,
         unitNumber: unit.unitNumber,
         ward: unit.ward,
@@ -291,7 +291,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         lastCollectedAt: unit.collections[0]?.collectedAt || null,
     }));
 
-    const collected = result.filter((u: any) => u.collectedToday).length;
+    const collected = result.filter((u) => u.collectedToday).length;
 
     return {
         units: result,
@@ -395,7 +395,7 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
     });
 
     // Filter to units not collected today
-    const missed = units.filter((unit) => {
+    const missed = units.filter((unit): boolean => {
         if (unit.collections.length === 0) return true;
 
         const lastCollection = unit.collections[0].collectedAt;
@@ -415,7 +415,7 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
             collectorName: unit.collector?.name || 'Unassigned',
             daysMissed,
         };
-    }).filter(unit => unit.collectorName !== 'Unassigned');
+    }).filter((unit) => unit.collectorName !== 'Unassigned');
 }
 
 // ============================================
