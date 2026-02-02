@@ -395,14 +395,14 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
     });
 
     // Filter to units not collected today
-    const missed = units.filter((unit): boolean => {
+    const missed = units.filter((unit: typeof units[number]): boolean => {
         if (unit.collections.length === 0) return true;
 
         const lastCollection = unit.collections[0].collectedAt;
         return lastCollection < today;
     });
 
-    return missed.map((unit) => {
+    const result = missed.map((unit: typeof missed[number]) => {
         const lastCollection = unit.collections[0]?.collectedAt;
         const daysMissed = lastCollection
             ? Math.floor((today.getTime() - lastCollection.getTime()) / (1000 * 60 * 60 * 24))
@@ -415,7 +415,9 @@ export async function getMissedCollections(ward?: string): Promise<Array<{
             collectorName: unit.collector?.name || 'Unassigned',
             daysMissed,
         };
-    }).filter((unit) => unit.collectorName !== 'Unassigned');
+    });
+
+    return result.filter((unit) => unit.collectorName !== 'Unassigned');
 }
 
 // ============================================
