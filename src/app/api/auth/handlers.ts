@@ -1,12 +1,14 @@
 // ============================================
-// Smart Bin - Authentication API Routes
+// Smart Bin - Authentication API Route Handlers
 // ============================================
-// POST /api/auth/request-otp - Request OTP for login
-// POST /api/auth/verify-otp - Verify OTP and get tokens
-// POST /api/auth/refresh - Refresh access token
+// These handlers serve authentication endpoints
+// - OTP request/verify (collectors, households, dashboard users)
+// - Password login (dashboard users)
+// - Token refresh
 // ============================================
 
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import {
     requestCollectorOTP,
     verifyCollectorOTP,
@@ -18,110 +20,56 @@ import {
     refreshAuthTokens,
     AuthError,
 } from '@/services/auth.service';
-import { z } from 'zod';
 
 // ============================================
 // VALIDATION SCHEMAS
 // ============================================
 
-// Request OTP schema
-const requestOTPSchema = z.object({
-    phone: z.string()
-        .min(10, 'Phone number must be at least 10 digits')
-        .max(15, 'Phone number too long')
-        .regex(/^\+?[0-9]+$/, 'Invalid phone number format'),
-    userType: z.enum(['collector', 'household', 'dashboard']),
-    qrToken: z.string().optional(), // For household context
+const phoneSchema = z.object({
+    phone: z.string().min(10).max(15),
 });
 
-// Verify OTP schema
-const verifyOTPSchema = z.object({
-    phone: z.string()
-        .min(10, 'Phone number must be at least 10 digits')
-        .max(15, 'Phone number too long'),
-    code: z.string()
-        .length(6, 'OTP must be 6 digits')
-        .regex(/^[0-9]+$/, 'OTP must contain only digits'),
-    userType: z.enum(['collector', 'household', 'dashboard']),
+const otpVerifySchema = z.object({
+    phone: z.string().min(10).max(15),
+    code: z.string().length(6),
 });
 
-// Password login schema
 const passwordLoginSchema = z.object({
     phone: z.string().min(10).max(15),
-    password: z.string().min(6, 'Password too short'),
+    password: z.string().min(1),
 });
 
-// Refresh token schema
 const refreshTokenSchema = z.object({
-    refreshToken: z.string().min(1, 'Refresh token required'),
+    refreshToken: z.string().min(1),
 });
 
 // ============================================
-// API RESPONSE HELPERS
+// RESPONSE HELPERS
 // ============================================
 
-/**
- * Create a successful API response
- */
 function successResponse<T>(data: T, status: number = 200) {
-    return NextResponse.json(
-        {
-            success: true,
-            data,
-        },
-        { status }
-    );
+    return NextResponse.json({ success: true, data }, { status });
 }
 
-/**
- * Create an error API response
- */
-function errorResponse(
-    message: string,
-    code: string = 'ERROR',
-    status: number = 400
-) {
+function errorResponse(message: string, code: string = 'ERROR', status: number = 400) {
     return NextResponse.json(
-        {
-            success: false,
-            error: {
-                code,
-                message,
-            },
-        },
+        { success: false, error: { code, message } },
         { status }
     );
 }
 
 // ============================================
-// REQUEST OTP ENDPOINT
+// OTP REQUEST HANDLER
 // ============================================
 
 /**
  * POST /api/auth/request-otp
- * Request OTP for login
- * 
- * Request Body:
- * {
- *   phone: "+919876543210",
- *   userType: "collector" | "household" | "dashboard",
- *   qrToken?: "abc123" // Optional, for household
- * }
- * 
- * Response:
- * {
- *   success: true,
- *   data: {
- *     message: "OTP sent successfully",
- *     expiresAt: "2026-01-20T12:00:00Z"
- *   }
- * }
+ * Request OTP for login (any user type)
  */
 export async function requestOTPHandler(request: NextRequest) {
     try {
-        // Parse and validate request body
         const body = await request.json();
-        const validation = requestOTPSchema.safeParse(body);
+        const validation = phoneSchema.safeParse(body);
 
         if (!validation.success) {
             return errorResponse(
@@ -131,80 +79,45 @@ export async function requestOTPHandler(request: NextRequest) {
             );
         }
 
-        const { phone, userType, qrToken } = validation.data;
+        const { phone } = validation.data;
+        const { searchParams } = new URL(request.url);
+        const userType = searchParams.get('type') || 'dashboard';
+        const qrToken = searchParams.get('qr') || undefined;
 
-        // Route to appropriate handler based on user type
+        // Route to appropriate OTP service based on user type
         let result;
-
-        switch (userType) {
-            case 'collector':
-                result = await requestCollectorOTP(phone);
-                break;
-
-            case 'household':
-                result = await requestHouseholdOTP(phone, qrToken);
-                break;
-
-            case 'dashboard':
-                result = await requestDashboardUserOTP(phone);
-                break;
-
-            default:
-                return errorResponse('Invalid user type', 'INVALID_USER_TYPE', 400);
+        if (userType === 'collector') {
+            result = await requestCollectorOTP(phone);
+        } else if (userType === 'household') {
+            result = await requestHouseholdOTP(phone, qrToken);
+        } else {
+            result = await requestDashboardUserOTP(phone);
         }
 
         return successResponse(result);
-
     } catch (error) {
         console.error('Request OTP error:', error);
 
         if (error instanceof AuthError) {
-            return errorResponse(error.message, 'AUTH_ERROR', 400);
+            return errorResponse(error.message, 'AUTH_ERROR', 401);
         }
 
-        // Handle rate limit errors
-        if (error instanceof Error && error.message.includes('wait')) {
-            return errorResponse(error.message, 'RATE_LIMITED', 429);
-        }
-
-        return errorResponse(
-            'Failed to send OTP. Please try again.',
-            'SERVER_ERROR',
-            500
-        );
+        return errorResponse('Failed to send OTP', 'SERVER_ERROR', 500);
     }
 }
 
 // ============================================
-// VERIFY OTP ENDPOINT
+// OTP VERIFY HANDLER
 // ============================================
 
 /**
  * POST /api/auth/verify-otp
- * Verify OTP and get JWT tokens
- * 
- * Request Body:
- * {
- *   phone: "+919876543210",
- *   code: "123456",
- *   userType: "collector" | "household" | "dashboard"
- * }
- * 
- * Response:
- * {
- *   success: true,
- *   data: {
- *     accessToken: "eyJ...",
- *     refreshToken: "eyJ...",
- *     collector: { ... } // or unit or user depending on type
- *   }
- * }
+ * Verify OTP and login
  */
 export async function verifyOTPHandler(request: NextRequest) {
     try {
-        // Parse and validate request body
         const body = await request.json();
-        const validation = verifyOTPSchema.safeParse(body);
+        const validation = otpVerifySchema.safeParse(body);
 
         if (!validation.success) {
             return errorResponse(
@@ -214,65 +127,39 @@ export async function verifyOTPHandler(request: NextRequest) {
             );
         }
 
-        const { phone, code, userType } = validation.data;
+        const { phone, code } = validation.data;
+        const { searchParams } = new URL(request.url);
+        const userType = searchParams.get('type') || 'dashboard';
 
-        // Route to appropriate handler
+        // Route to appropriate verify service based on user type
         let result;
-
-        switch (userType) {
-            case 'collector':
-                result = await verifyCollectorOTP(phone, code);
-                break;
-
-            case 'household':
-                result = await verifyHouseholdOTP(phone, code);
-                break;
-
-            case 'dashboard':
-                result = await verifyDashboardUserOTP(phone, code);
-                break;
-
-            default:
-                return errorResponse('Invalid user type', 'INVALID_USER_TYPE', 400);
+        if (userType === 'collector') {
+            result = await verifyCollectorOTP(phone, code);
+        } else if (userType === 'household') {
+            result = await verifyHouseholdOTP(phone, code);
+        } else {
+            result = await verifyDashboardUserOTP(phone, code);
         }
 
         return successResponse(result);
-
     } catch (error) {
         console.error('Verify OTP error:', error);
 
-        if (error instanceof Error) {
-            // Handle specific OTP errors
-            if (error.name.includes('OTP')) {
-                return errorResponse(error.message, 'OTP_ERROR', 400);
-            }
-
-            if (error instanceof AuthError) {
-                return errorResponse(error.message, 'AUTH_ERROR', 401);
-            }
+        if (error instanceof AuthError) {
+            return errorResponse(error.message, 'AUTH_ERROR', 401);
         }
 
-        return errorResponse(
-            'OTP verification failed. Please try again.',
-            'SERVER_ERROR',
-            500
-        );
+        return errorResponse('Failed to verify OTP', 'SERVER_ERROR', 500);
     }
 }
 
 // ============================================
-// PASSWORD LOGIN ENDPOINT
+// PASSWORD LOGIN HANDLER
 // ============================================
 
 /**
  * POST /api/auth/login
- * Login with password (for dashboard users)
- * 
- * Request Body:
- * {
- *   phone: "+919876543210",
- *   password: "your-password"
- * }
+ * Login with password (dashboard users only)
  */
 export async function passwordLoginHandler(request: NextRequest) {
     try {
@@ -291,7 +178,6 @@ export async function passwordLoginHandler(request: NextRequest) {
         const result = await loginWithPassword(phone, password);
 
         return successResponse(result);
-
     } catch (error) {
         console.error('Password login error:', error);
 
@@ -299,35 +185,17 @@ export async function passwordLoginHandler(request: NextRequest) {
             return errorResponse(error.message, 'AUTH_ERROR', 401);
         }
 
-        return errorResponse(
-            'Login failed. Please try again.',
-            'SERVER_ERROR',
-            500
-        );
+        return errorResponse('Login failed', 'SERVER_ERROR', 500);
     }
 }
 
 // ============================================
-// TOKEN REFRESH ENDPOINT
+// REFRESH TOKEN HANDLER
 // ============================================
 
 /**
  * POST /api/auth/refresh
- * Refresh access token using refresh token
- * 
- * Request Body:
- * {
- *   refreshToken: "eyJ..."
- * }
- * 
- * Response:
- * {
- *   success: true,
- *   data: {
- *     accessToken: "eyJ...",
- *     refreshToken: "eyJ..."
- *   }
- * }
+ * Refresh access token
  */
 export async function refreshTokenHandler(request: NextRequest) {
     try {
@@ -346,24 +214,13 @@ export async function refreshTokenHandler(request: NextRequest) {
         const result = await refreshAuthTokens(refreshToken);
 
         return successResponse(result);
-
     } catch (error) {
-        console.error('Token refresh error:', error);
+        console.error('Refresh token error:', error);
 
-        if (error instanceof Error) {
-            if (error.name.includes('Token')) {
-                return errorResponse(
-                    'Invalid or expired refresh token. Please login again.',
-                    'TOKEN_ERROR',
-                    401
-                );
-            }
+        if (error instanceof AuthError) {
+            return errorResponse(error.message, 'AUTH_ERROR', 401);
         }
 
-        return errorResponse(
-            'Token refresh failed. Please login again.',
-            'SERVER_ERROR',
-            500
-        );
+        return errorResponse('Token refresh failed', 'SERVER_ERROR', 500);
     }
 }
