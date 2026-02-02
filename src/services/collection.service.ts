@@ -283,7 +283,7 @@ export async function getCollectorRoute(collectorId: number): Promise<{
         orderBy: { unitNumber: 'asc' },
     });
 
-    const result = units.map((unit) => ({
+    const result = units.map((unit: typeof units[number]) => ({
         id: unit.id,
         unitNumber: unit.unitNumber,
         ward: unit.ward,
