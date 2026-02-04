@@ -75,8 +75,48 @@ AWS provides managed services for Next.js.
 
 ---
 
+## 🏢 Admin Dashboard & 🏠 Household App
+**Location**: `ghmc admin dashboard 1/` and `household web app 1/`
+**Tech**: Vite + React + TypeScript
+
+These are standard web applications. The simplest way to deploy is using **Vercel** or **Render Static Sites**.
+
+### Steps for Vercel:
+1. Push each folder to GitHub (as separate repos or a monorepo).
+2. Create a new project on Vercel and select the folder.
+3. **Environment Variables**:
+   - `VITE_API_URL`: Set this to your live backend URL (e.g., `https://smart-bin-backend-bvo8.onrender.com`).
+4. **Build Command**: `npm run build`
+5. **Output Directory**: `dist`
+
+---
+
+## 📱 Collector Mobile App
+**Location**: `Collector/`
+**Tech**: Expo (React Native)
+
+Since this is a mobile app, it needs to be built for Android/iOS or run via Expo Go.
+
+### 1. Development / Testing:
+- Install the **Expo Go** app on your phone.
+- Run `npx expo start` in the `Collector/` directory.
+- Scan the QR code with your phone to test.
+
+### 2. Production Build (Android/iOS):
+You should use **EAS Build** (Expo's cloud build service):
+1. Install EAS CLI: `npm install -g eas-cli`.
+2. Login: `eas login`.
+3. Configure: `eas build:configure`.
+4. Build for Android (APK): `eas build -p android --profile preview`.
+5. Build for iOS: `eas build -p ios`.
+
+> [!IMPORTANT]
+> Change the API URL in `Collector/api/` or whichever file handles the base URL to point to your live backend BEFORE building.
+
+---
+
 ## 📋 Pre-Deployment Checklist
-- [ ] Ensure `DATABASE_URL` is a production-ready database (e.g., Supabase PostgreSQL).
-- [ ] Verify `JWT_SECRET` is unique and secure.
-- [ ] Check `next.config.ts` for CORS settings allowing your frontend domain.
-- [ ] Run `npx prisma migrate deploy` on the production database to sync the schema.
+- [x] Backend is live at Render.
+- [ ] Frontend `VITE_API_URL` updated to point to live backend.
+- [ ] Mobile app API base URL updated.
+- [ ] `JWT_SECRET` matches across all components.

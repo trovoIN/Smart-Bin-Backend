@@ -69,7 +69,16 @@ function errorResponse(message: string, code: string = 'ERROR', status: number =
 export async function requestOTPHandler(request: NextRequest) {
     try {
         const body = await request.json();
-        const validation = phoneSchema.safeParse(body);
+
+        // Accept userType from body (preferred) or query params (backward compatibility)
+        const userTypeFromBody = body.userType;
+        const { searchParams } = new URL(request.url);
+        const userTypeFromQuery = searchParams.get('type');
+        const userType = userTypeFromBody || userTypeFromQuery || 'dashboard';
+        const qrToken = searchParams.get('qr') || undefined;
+
+        // Validate phone
+        const validation = phoneSchema.safeParse({ phone: body.phone });
 
         if (!validation.success) {
             return errorResponse(
@@ -80,9 +89,6 @@ export async function requestOTPHandler(request: NextRequest) {
         }
 
         const { phone } = validation.data;
-        const { searchParams } = new URL(request.url);
-        const userType = searchParams.get('type') || 'dashboard';
-        const qrToken = searchParams.get('qr') || undefined;
 
         // Route to appropriate OTP service based on user type
         let result;
@@ -106,6 +112,7 @@ export async function requestOTPHandler(request: NextRequest) {
     }
 }
 
+
 // ============================================
 // OTP VERIFY HANDLER
 // ============================================
@@ -117,7 +124,15 @@ export async function requestOTPHandler(request: NextRequest) {
 export async function verifyOTPHandler(request: NextRequest) {
     try {
         const body = await request.json();
-        const validation = otpVerifySchema.safeParse(body);
+
+        // Accept userType from body (preferred) or query params (backward compatibility)
+        const userTypeFromBody = body.userType;
+        const { searchParams } = new URL(request.url);
+        const userTypeFromQuery = searchParams.get('type');
+        const userType = userTypeFromBody || userTypeFromQuery || 'dashboard';
+
+        // Validate phone and code
+        const validation = otpVerifySchema.safeParse({ phone: body.phone, code: body.code });
 
         if (!validation.success) {
             return errorResponse(
@@ -128,8 +143,6 @@ export async function verifyOTPHandler(request: NextRequest) {
         }
 
         const { phone, code } = validation.data;
-        const { searchParams } = new URL(request.url);
-        const userType = searchParams.get('type') || 'dashboard';
 
         // Route to appropriate verify service based on user type
         let result;
