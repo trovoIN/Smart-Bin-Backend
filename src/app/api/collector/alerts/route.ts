@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
             where: {
                 collectorId,
                 status: {
-                    in: ['OPEN', 'IN_PROGRESS'],
+                    in: ['OPEN', 'IN_REVIEW'],
                 },
             },
             include: {
@@ -51,7 +51,7 @@ export async function GET(request: NextRequest) {
                 unit: {
                     collectorId,
                 },
-                status: 'PENDING',
+                status: 'CLAIMED',
                 month: currentMonth,
             },
             include: {
@@ -80,13 +80,13 @@ export async function GET(request: NextRequest) {
         });
 
         // Format alerts
-        const alerts = [];
+        const alerts: any[] = [];
 
         // Add complaint alerts
         complaints.forEach(c => {
             alerts.push({
                 id: `complaint-${c.id}`,
-                type: c.complaintType === 'MISSED_COLLECTION' ? 'urgent' : 'warning',
+                type: c.complaintType === 'GARBAGE_NOT_COLLECTED' ? 'urgent' : 'warning',
                 title: c.complaintType.replace(/_/g, ' '),
                 message: `Unit ${c.unit?.unitNumber} - ${c.description}`,
                 time: getRelativeTime(c.createdAt),
@@ -101,8 +101,8 @@ export async function GET(request: NextRequest) {
                 type: 'info',
                 title: 'Payment Pending',
                 message: `Unit ${p.unit?.unitNumber} - ₹${p.amount} for ${p.month}`,
-                time: getRelativeTime(p.createdAt),
-                createdAt: p.createdAt,
+                time: getRelativeTime(p.claimedAt || new Date()),
+                createdAt: p.claimedAt || new Date(),
             });
         });
 

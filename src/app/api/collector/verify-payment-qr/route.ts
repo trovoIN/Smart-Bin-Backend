@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
 
         // Verify payment with QR
         const payment = await verifyPaymentWithQR(
-            decoded.userId,
+            parseInt(decoded.sub),
             qrToken,
             { paymentId: 0, action, rejectionReason } // paymentId not used in QR flow
         );

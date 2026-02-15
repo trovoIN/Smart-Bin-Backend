@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Validate QR code
-        const qr = await prisma.qrCode.findUnique({
+        const qr = await prisma.qRCode.findUnique({
             where: { secureToken: qrToken },
             include: {
                 unit: {
@@ -69,8 +69,16 @@ export async function GET(request: NextRequest) {
             );
         }
 
+        // Check if QR is assigned to a unit
+        if (!qr.unit) {
+            return NextResponse.json(
+                { success: false, error: { message: 'QR code is not assigned to any house' } },
+                { status: 400 }
+            );
+        }
+
         // Check if collector is assigned to this house
-        if (qr.unit.collectorId !== decoded.userId) {
+        if (qr.unit.collectorId !== parseInt(decoded.sub)) {
             return NextResponse.json(
                 { success: false, error: { message: 'You are not assigned to this house' } },
                 { status: 403 }

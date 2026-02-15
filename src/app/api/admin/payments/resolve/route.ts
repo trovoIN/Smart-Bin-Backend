@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
 
         // Resolve dispute
         const payment = await resolveDispute(
-            decoded.userId,
+            parseInt(decoded.sub),
             parseInt(paymentId),
             decision,
             notes

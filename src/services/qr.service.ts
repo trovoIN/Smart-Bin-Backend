@@ -19,7 +19,7 @@
 
 import prisma from '@/lib/db/prisma';
 import { generateSecureToken, generateUrlSafeToken, encrypt, decrypt, sha256Hash } from '@/lib/security';
-import { QRCode, QRStatus, QRResolveResponse, UserRole } from '@/types';
+import { QRCode, QRStatus, QRResolveResponse, UserRole, PaymentStatus } from '@/types';
 import QRCodeLib from 'qrcode';
 import crypto from 'crypto';
 
@@ -274,9 +274,6 @@ export async function resolveQRCode(
     if (qrCode.status === 'UNASSIGNED') {
         return {
             status: QRStatus.UNASSIGNED,
-            qr: {
-                token: qrCode.secureToken,
-            },
         };
     }
 
@@ -288,15 +285,12 @@ export async function resolveQRCode(
         // Unit exists but has no collector assigned
         return {
             status: QRStatus.UNASSIGNED,
-            qr: {
-                token: qrCode.secureToken,
-            },
             unit: {
                 id: unit.id,
                 unitNumber: unit.unitNumber,
-                residentName: unit.residentName || undefined,
-                householdPhone: unit.householdPhone || undefined,
-                ward: unit.ward || undefined,
+                phoneNumber: unit.householdPhone || '',
+                paymentStatus: 'UNPAID' as PaymentStatus,
+                collectorName: 'Unassigned',
             },
         };
     }
@@ -310,6 +304,8 @@ export async function resolveQRCode(
                 unit: {
                     id: unit.id,
                     unitNumber: unit.unitNumber,
+                    phoneNumber: unit.householdPhone || '',
+                    paymentStatus: 'UNPAID' as PaymentStatus,
                     collectorName: unit.collector?.name || 'Another Collector',
                 },
             };
@@ -348,14 +344,11 @@ export async function resolveQRCode(
         unit: {
             id: unit.id,
             unitNumber: unit.unitNumber,
-            residentName: unit.residentName || undefined,
-            householdPhone: unit.householdPhone || undefined,
-            ward: unit.ward || undefined,
+            phoneNumber: unit.householdPhone || '',
             lastCollectedAt: lastCollection?.collectedAt,
             paymentStatus: (lastPayment?.status || 'UNPAID') as any,
             collectorName: unit.collector?.name || 'Unassigned',
         },
-        collectedToday,
     };
 
     return response;

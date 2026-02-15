@@ -151,7 +151,7 @@ export const getOverviewHandler = withAuth(
             // Payment stats only for non-GOVT users
             if (user.role !== UserRole.GOVT) {
                 const paymentStats = await getPaymentStats(ward);
-                result.pendingPayments = paymentStats.pending || 0;
+                result.pendingPayments = paymentStats.claimed || 0;
             } else {
                 result.pendingPayments = 0;
             }

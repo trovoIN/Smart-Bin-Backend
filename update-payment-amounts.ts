@@ -1,4 +1,4 @@
-import prisma from '../lib/db/prisma';
+import prisma from './src/lib/db/prisma';
 
 // Update all existing payments with amount 100 to 150
 async function updatePaymentAmounts() {

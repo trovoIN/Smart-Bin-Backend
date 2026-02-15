@@ -256,6 +256,11 @@ export async function verifyPaymentWithQR(
         throw new PaymentError('QR code is not active');
     }
 
+    // Check if QR is assigned to a unit
+    if (!qr.unit) {
+        throw new PaymentError('QR code is not assigned to any house');
+    }
+
     // 2. Verify collector is assigned to this unit
     if (qr.unit.collectorId !== collectorId) {
         throw new PaymentError(
